@@ -1227,7 +1227,7 @@ class web_dwc2:
 	def gcode_response(self, msg):
 
 		if self.klipper_ready:
-			if re.match('T\d:\d+.\d\s/\d+.\d+', msg): return	#	filters tempmessages during heatup
+			if re.match('[BT]\d?:\d+.\d+\s/\d+.\d+', msg): return	#	filters tempmessages during heatup
 
 		self.gcode_reply.append(msg)
 	#	recall for gcode ecxecution is needed ( threadsafeness )
