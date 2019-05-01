@@ -190,6 +190,7 @@ class web_dwc2:
 
 			if self.request.remote_ip not in self.web_dwc2.sessions.keys() and "rr_connect" not in self.request.uri and self.request.remote_ip != '127.0.0.1':
 				#	response 408 timeout to force the webif reload after klippy restarts us
+				logging.error( self.request.remote_ip )
 				self.clear()
 				self.set_status(408)
 				self.finish()
