@@ -31,6 +31,7 @@ class web_dwc2:
 		self.last_state = 'O'
 		self.popup = None
 		self.message = None
+		self.sdcard = None
 		self.serial = serial.Serial('/tmp/printer', 250000, timeout=0.050)
 		#	get config
 		self.config = config
@@ -39,6 +40,7 @@ class web_dwc2:
 		self.webpath = config.get( 'web_path', "dwc2/web" )
 		self.printername =  config.get( 'printer_name', "Klipper" )
 		#	klippy objects
+		self.current_tool = -1
 		self.bed_mesh = None
 		self.printer = config.get_printer()
 		self.reactor = self.printer.get_reactor()
@@ -77,6 +79,7 @@ class web_dwc2:
 	#	function once reactor calls, once klipper feels good
 	def handle_ready(self):
 		#	klippy related
+		self.current_tool = 0
 		self.bed_mesh = self.printer.lookup_object('bed_mesh', None)
 		self.chamber = self.printer.lookup_object('chamber', None)
 		self.heater_bed = self.printer.lookup_object('heater_bed', None)
@@ -185,8 +188,8 @@ class web_dwc2:
 		@tornado.gen.coroutine
 		def get(self, *args):
 
-			if self.request.remote_ip not in self.web_dwc2.sessions.keys() and "rr_connect" not in self.request.uri:
-				#	response 408 timeout to make the webif reload after klippy restarts us
+			if self.request.remote_ip not in self.web_dwc2.sessions.keys() and "rr_connect" not in self.request.uri and self.request.remote_ip != '127.0.0.1':
+				#	response 408 timeout to force the webif reload after klippy restarts us
 				self.clear()
 				self.set_status(408)
 				self.finish()
@@ -538,6 +541,12 @@ class web_dwc2:
 			#	defaulting to original
 			handover = params['#original']
 
+			#	handle toolchanges
+			if re.match('^T(-)?\d$', params['#command']):
+				self.current_tool = abs(int(params['T']))
+				if params['#command'] == 'T-1':
+					continue
+
 			#	prevent midprint accidents
 			stat_ = self.get_printer_status()
 			if stat_ in [ 'P', 'D', 'R' ] and params['#command'] not in midprint_allow :
@@ -664,7 +673,7 @@ class web_dwc2:
 				"requested": gcode_stats['speed'] / 60 * gcode_stats['speed_factor'] ,
 				"top": 	0 #	not available on klipepr
 			},
-			"currentTool": 1,	#	must be at least 1 ! learned the hardway....
+			"currentTool": self.current_tool,	#	must be at least 1 ! learned the hardway....
 			"params": {
 				"atxPower": 0,
 				"fanPercent": [ fan_['speed']*100 for fan_ in fan_stats ] ,
@@ -770,7 +779,7 @@ class web_dwc2:
 				"requested": gcode_stats['speed'] / 60 * gcode_stats['speed_factor'] ,
 				"top": 	0 #	not available on klipepr
 			},
-			"currentTool": 1 ,
+			"currentTool": self.current_tool,
 			"params": {
 				"atxPower": 0 ,
 				"fanPercent": [ fan_['speed']*100 for fan_ in fan_stats ] ,
@@ -833,10 +842,10 @@ class web_dwc2:
 			},
 			"tools": [
 				{
-					"number": extr_stat.index(ex_) + 1 ,
+					"number": extr_stat.index(ex_) ,
 					"name": ex_['name'] ,
 					"heaters": [ extr_stat.index(ex_) + 1 ],
-					"drives": [ extr_stat.index(ex_) + 1 ] ,
+					"drives": [ extr_stat.index(ex_) ] ,
 					"axisMap": [ 1 ],
 					"fans": 1,
 					"filament": "",
@@ -976,7 +985,7 @@ class web_dwc2:
 				"requested": gcode_stats['speed'] / 60 * gcode_stats['speed_factor'] ,
 				"top": 	0 #	not available on klipepr
 			},
-			"currentTool": 1 ,
+			"currentTool": self.current_tool ,
 			"params": {
 				"atxPower": 0 ,
 				"fanPercent": [ fan_['speed']*100 for fan_ in fan_stats ] ,
@@ -1099,7 +1108,7 @@ class web_dwc2:
 	def cmd_G10(self, params):
 
 		temp = max ( max( self.gcode.get_float('S', params, 0.), self.gcode.get_float('R', params, 0.) ), 0 )
-		command_ = str("M104 T%d S%0.2f" % ( int(params['P'])-1, float(temp)) )
+		command_ = str("M104 T%d S%0.2f" % ( int(params['P']), float(temp)) )
 		return command_
 	#	rrf M0 - cancel print from sd
 	def cmd_M0(self, params):
