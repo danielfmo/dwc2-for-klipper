@@ -431,8 +431,8 @@ class web_dwc2:
 		return repl_
 	#	dwc rr_filelist
 	def rr_filelist(self, web_):
-
-		path_ = self.sdpath + web_.get_argument('dir').replace("0:", "")
+		dir_ = web_.get_argument('dir').replace("0:", "")
+		path_ = self.sdpath + dir_
 
 		#	creating the infoblock
 		repl_ = {
@@ -443,32 +443,38 @@ class web_dwc2:
 		}
 
 		#	if rrf is requesting directory, it has to be there.
-		if not os.path.exists(path_):
-			os.makedirs(path_)
-
-		#	append elements to files list matching rrf syntax
-		for el_ in os.listdir(path_):
-			el_path = path_ + "/" + str(el_)
-			repl_['files'].append({
-				"type": "d" if os.path.isdir(el_path) else "f" ,
-				"name": str(el_) ,
-				"size": os.stat(el_path).st_size ,
-				"date": datetime.datetime.utcfromtimestamp( os.stat(el_path).st_mtime ).strftime("%Y-%m-%dT%H:%M:%S")
-			})
-
-		#	add klipper macros as virtual files
-		if "/macros" in web_.get_argument('dir').replace("0:", ""):
-			for macro_ in self.klipper_macros:
-
+		if os.path.exists(path_):
+			#	append elements to files list matching rrf syntax
+			for el_ in os.listdir(path_):
+				el_path = path_ + "/" + str(el_)
 				repl_['files'].append({
-					"type": "f" ,
-					"name": macro_ ,
-					"size": 1 ,
-					"date": time.strftime("%Y-%m-%dT%H:%M:%S") 
+					"type": "d" if os.path.isdir(el_path) else "f" ,
+					"name": str(el_) ,
+					"size": os.stat(el_path).st_size ,
+					"date": datetime.datetime.utcfromtimestamp( os.stat(el_path).st_mtime ).strftime("%Y-%m-%dT%H:%M:%S")
 				})
 
+		#	macros
+		if "/macros" in dir_:
+			# If at the "root" of macros add a virtual Klipper folder
+			if "/macros" == dir_:
+				repl_['files'].append({
+					"type": "d" ,
+					"name": "Klipper" ,
+					"size": 1 ,
+					"date": time.strftime("%Y-%m-%dT%H:%M:%S")
+				})
+			if "/macros/Klipper" == dir_:
+				for macro_ in self.klipper_macros:
+					repl_['files'].append({
+						"type": "f" ,
+						"name": macro_ ,
+						"size": 1 ,
+						"date": time.strftime("%Y-%m-%dT%H:%M:%S")
+					})
+
 		#	virtual config file
-		elif "/sys" in web_.get_argument('dir').replace("0:", ""):
+		elif "/sys" in dir_:
 
 			repl_['files'].append({
 				"type": "f",
@@ -882,7 +888,7 @@ class web_dwc2:
 
 		if self.chamber:
 			chamber_stats = self.chamber.get_status(0)
-			self.status_2['temps'].update({ 
+			self.status_2['temps'].update({
 				"chamber": {
 					"current": chamber_stats.get("temp") ,
 					"active": chamber_stats.get("target", -1) ,
@@ -1109,7 +1115,7 @@ class web_dwc2:
 		self.sdcard.must_pause_work = True 		#	pause print -> sdcard postion is saved in virtual sdcard
 		self.sdcard.file_position = 0			#	reset fileposition
 		self.sdcard.work_timer = None 			#	reset worktimer
-		self.sdcard.current_file = None 		#	
+		self.sdcard.current_file = None 		#
 		self.printfile = None
 		self.cancel_macro()
 		#	let user define a cancel/pause print macro`?
@@ -1227,7 +1233,7 @@ class web_dwc2:
 			self.reactor.register_callback(self.gcode_reactor_callback)
 	#	getting response by callback
 	def gcode_response(self, msg):
-		
+
 		if self.klipper_ready:
 			if re.match('(B|T\d):\d+.\d\s/\d+.\d+', msg): return	#	filters tempmessages during heatup
 
@@ -1497,7 +1503,7 @@ class web_dwc2:
 			]
 
 			#	heigth of the first layer
-		first_h = [ 
+		first_h = [
 			'first_layer_thickness_mm\s=\s\d+\.\d+' , 		#	kisslicers setting
 			'; first_layer_height =' ,						# 	Slic3r
 			'\sZ\\d+.\\d*' ,								#	Simplify3d
@@ -1534,7 +1540,7 @@ class web_dwc2:
 			';Material#1 Used:\s\d+\.?\d+'					#	ideamaker
 			]
 		#	slicernames
-		slicers = [ 
+		slicers = [
 			'KISSlicer' ,
 			'^Slic3r$' ,
 			'Simplify3D\(R\).*' ,
@@ -1553,9 +1559,9 @@ class web_dwc2:
 			s_str = re.search(re.compile('(\d+(\s)?seconds|\d+(\s)?s)'),in_)
 			dursecs = 0
 			if h_str:
-				dursecs += float( max( re.findall('([0-9]*\.?[0-9]+)' , ''.join(h_str.group()) ) ) ) *3600 
+				dursecs += float( max( re.findall('([0-9]*\.?[0-9]+)' , ''.join(h_str.group()) ) ) ) *3600
 			if m_str:
-				dursecs += float( max( re.findall('([0-9]*\.?[0-9]+)' , ''.join(m_str.group()) ) ) ) *60 
+				dursecs += float( max( re.findall('([0-9]*\.?[0-9]+)' , ''.join(m_str.group()) ) ) ) *60
 			if s_str:
 				dursecs += float( max( re.findall('([0-9]*\.?[0-9]+)' , ''.join(s_str.group()) ) ) )
 			if dursecs == 0:
@@ -1586,7 +1592,7 @@ class web_dwc2:
 					matches = re.findall(objects_h[sl], pile )
 					meta['objects_h'] = max( [ float(mat_) for mat_ in re.findall("\d*\.\d*", ' '.join(matches) ) ] )
 				except:
-					pass				
+					pass
 			if layer_h[sl] != "":
 				try:
 					matches = re.findall(layer_h[sl], pile )
@@ -1612,7 +1618,7 @@ class web_dwc2:
 					meta['filament'] = (meta['filament'],meta['filament']*1000)[sl==4]	#	cura is in m -> translate
 				except:
 					pass
-			
+
 		else:
 			self.gcode_reply.append("Your Slicer is not yet implemented.")
 
