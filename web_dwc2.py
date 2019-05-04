@@ -190,7 +190,6 @@ class web_dwc2:
 
 			if self.request.remote_ip not in self.web_dwc2.sessions.keys() and "rr_connect" not in self.request.uri and self.request.remote_ip != '127.0.0.1':
 				#	response 408 timeout to force the webif reload after klippy restarts us
-				logging.error( self.request.remote_ip )
 				self.clear()
 				self.set_status(408)
 				self.finish()
@@ -285,6 +284,9 @@ class web_dwc2:
 				self.write( json.dumps(self.repl_) )
 			except Exception as e:
 				logging.warn( "DWC2 - error in write: " + str(e) )
+
+		def decode_argument(self, value, name=None):
+			return value.encode('UTF-8') if isinstance(value, unicode) else value
 
 ##
 #	All the crazy shit dc42 fiddled together in c
@@ -447,7 +449,7 @@ class web_dwc2:
 
 		#	append elements to files list matching rrf syntax
 		for el_ in os.listdir(path_):
-			el_path = path_ + "/" + el_
+			el_path = path_ + "/" + str(el_)
 			repl_['files'].append({
 				"type": "d" if os.path.isdir(el_path) else "f" ,
 				"name": str(el_) ,
@@ -843,9 +845,9 @@ class web_dwc2:
 			},
 			"tools": [
 				{
-					"number": extr_stat.index(ex_) ,
-					"name": ex_['name'] ,
-					"heaters": [ extr_stat.index(ex_) + 1 ],
+					"number": extr_stat.index(ex_),
+					"name": ex_['name'],
+					"heaters": [ extr_stat.index(ex_) + 1 ] ,
 					"drives": [ extr_stat.index(ex_) ] ,
 					"axisMap": [ 1 ],
 					"fans": 1,
@@ -1237,7 +1239,7 @@ class web_dwc2:
 	def gcode_response(self, msg):
 
 		if self.klipper_ready:
-			if re.match('[BT]\d?:\d+.\d+\s/\d+.\d+', msg): return	#	filters tempmessages during heatup
+			if re.match('(B|T\d):\d+.\d\s/\d+.\d+', msg): return	#	filters tempmessages during heatup
 
 		self.gcode_reply.append(msg)
 	#	recall for gcode ecxecution is needed ( threadsafeness )
@@ -1246,7 +1248,7 @@ class web_dwc2:
 		if self.gcode.dwc_lock:
 			return
 
-		ack_needers = [ "G0", "G1", "G28", "M0", "M24", "M25", "M83", "M84", "M104", "M112", "M117", "M140", "M141", "FIRMWARE_RESTART" "", "SET_PIN", "STEPPER_BUZZ" ]
+		ack_needers = [ "G0", "G1", "G28", "M0", "M24", "M25", "M83", "M84", "M104", "M112", "M117", "M140", "M141", "DUMP_TMC", "FIRMWARE_RESTART" "", "SET_PIN", "STEPPER_BUZZ" ]
 		lowers = [ "DUMP_TMC", "ENDSTOP_PHASE_CALIBRATE", "FORCE_MOVE", "PID_CALIBRATE", "SET_HEATER_TEMPERATURE", "SET_PIN", "SET_PRESSURE_ADVANCE", "STEPPER_BUZZ" ]
 
 		self.gcode.dwc_lock = self.gcode.is_processing_data = True
