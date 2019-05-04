@@ -432,8 +432,8 @@ class web_dwc2:
 		return repl_
 	#	dwc rr_filelist
 	def rr_filelist(self, web_):
-
-		path_ = self.sdpath + web_.get_argument('dir').replace("0:", "")
+		dir_ = web_.get_argument('dir').replace("0:", "")
+		path_ = self.sdpath + dir_
 
 		#	creating the infoblock
 		repl_ = {
@@ -444,29 +444,29 @@ class web_dwc2:
 		}
 
 		#	if rrf is requesting directory, it has to be there.
-		if not os.path.exists(path_):
-			os.makedirs(path_)
+		if os.path.exists(path_):
+			#	append elements to files list matching rrf syntax
+			for el_ in os.listdir(path_):
+				el_path = path_ + "/" + str(el_)
+				repl_['files'].append({
+					"type": "d" if os.path.isdir(el_path) else "f" ,
+					"name": str(el_) ,
+					"size": os.stat(el_path).st_size ,
+					"date": datetime.datetime.utcfromtimestamp( os.stat(el_path).st_mtime ).strftime("%Y-%m-%dT%H:%M:%S")
+				})
 
-		#	append elements to files list matching rrf syntax
-		for el_ in os.listdir(path_):
-			el_path = path_ + "/" + str(el_)
-			repl_['files'].append({
-				"type": "d" if os.path.isdir(el_path) else "f" ,
-				"name": str(el_) ,
-				"size": os.stat(el_path).st_size ,
-				"date": datetime.datetime.utcfromtimestamp( os.stat(el_path).st_mtime ).strftime("%Y-%m-%dT%H:%M:%S")
-			})
-
-		#	add klipper macros as virtual files
-		if "/macros" in web_.get_argument('dir').replace("0:", ""):
-			# add folder for klipper macros, and only show then in this folder
-			klipper_path_ = os.path.join(self.sdpath, "macros", "Klipper")
-			if not os.path.exists(klipper_path_):
-				os.makedirs(klipper_path_)
-
-			if path_.lower() == klipper_path_.lower():
+		#	macros
+		if "/macros" in dir_:
+			# If at the "root" of macros add a virtual Klipper folder
+			if "/macros" == dir_:
+				repl_['files'].append({
+					"type": "d" ,
+					"name": "Klipper" ,
+					"size": 1 ,
+					"date": time.strftime("%Y-%m-%dT%H:%M:%S")
+				})
+			if "/macros/Klipper" == dir_:
 				for macro_ in self.klipper_macros:
-
 					repl_['files'].append({
 						"type": "f" ,
 						"name": macro_ ,
@@ -475,7 +475,7 @@ class web_dwc2:
 					})
 
 		#	virtual config file
-		elif "/sys" in web_.get_argument('dir').replace("0:", ""):
+		elif "/sys" in dir_:
 
 			repl_['files'].append({
 				"type": "f",
