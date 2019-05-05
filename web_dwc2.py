@@ -185,6 +185,18 @@ class web_dwc2:
 			self.web_dwc2 = web_dwc2
 			self.repl_ = {"err":1}
 
+		def set_default_headers(self):
+
+			origin = self.request.headers.get("Origin", None)
+
+			if origin:
+				self.set_header("Access-Control-Allow-Origin", origin)
+				self.set_header('Access-Control-Allow-Credentials', "true")
+				self.set_header('Access-Control-Allow-Methods', "GET, POST, OPTIONS")
+				self.set_header('Access-Control-Expose-Headers', "Content-Type")
+				self.set_header('Access-Control-Allow-Headers', "Content-Type, Depth, User-Agent, X-File-Size, X-Requested-With, X-Requested-By, If-Modified-Since, X-File-Name, Cache-Control")
+				self.set_header('Access-Control-Max-Age', 600)
+
 		@tornado.gen.coroutine
 		def get(self, *args):
 
